@@ -1,4 +1,4 @@
-from wx_client import WeChatClient, ChatMessageClassName, MessageType
+from src.wechat_pc_mcp.wx_client import WeChatClient, ChatMessageClassName, MessageType
 
 client = WeChatClient()
 
@@ -24,7 +24,7 @@ def handle_system(message):
 
 def main():
     client = WeChatClient()
-    client.on(MessageType.TEXT, lambda message: print(message))
+    client.add_message_handler(MessageType.TEXT, lambda message: print(message))
     client.get_msg()
     # client.publish('朋友圈自动发布器v1.0', images=[r'E:\xxd\workspace\databox\databox\wechat\chat\test.jpg'] * 1)
     client.start()

@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Callable, Any, Self
 
 import uiautomation as auto
-import utils
+from src.wechat_pc_mcp import utils
 from uiautomation import Control
 
 auto.uiautomation.DEBUG_SEARCH_TIME = True
