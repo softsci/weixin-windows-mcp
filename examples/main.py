@@ -3,13 +3,13 @@ from src.wechat_pc_mcp.wx_client import WeChatClient, ChatMessageClassName, Mess
 client = WeChatClient()
 
 
-@client.on(ChatMessageClassName.TEXT)
+@client.on(MessageType.TEXT)
 def handle_text(message):
     print('text')
     print(message)
 
 
-@client.on(ChatMessageClassName.IMAGE)
+@client.on(MessageType.IMAGE)
 def handle_image(message):
     if message.Name == '图片':
         client.click_media(message)
@@ -17,7 +17,7 @@ def handle_image(message):
         print('image')
 
 
-@client.on(ChatMessageClassName.SYSTEM)
+@client.on(MessageType.SYSTEM)
 def handle_system(message):
     print('system')
 
