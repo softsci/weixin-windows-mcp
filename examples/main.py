@@ -1,4 +1,4 @@
-from src.wechat_pc_mcp.wx_client import WeChatClient, ChatMessageClassName, MessageType
+from weixin_windows_mcp.weixin import WeChatClient, MessageType
 
 client = WeChatClient()
 

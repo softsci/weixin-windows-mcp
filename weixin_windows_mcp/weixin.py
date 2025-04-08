@@ -3,8 +3,9 @@ from enum import StrEnum
 from typing import Callable, Any, Self
 
 import uiautomation as auto
-from src.wechat_pc_mcp import utils
 from uiautomation import Control
+
+from weixin_windows_mcp import utils
 
 auto.uiautomation.DEBUG_SEARCH_TIME = True
 
@@ -42,22 +43,22 @@ class MessageType(StrEnum):
     SYSTEM = 'system'
 
 
-class WeChatClient:
+class Weixin:
     IMAGE_X_OFFSET = 70
     IMAGE_Y_OFFSET = 30
 
     def __init__(self):
         self._handlers = {}
-        self.wechat_window = auto.WindowControl(searchDepth=1, ClassName='mmui::MainWindow')
-        self.wechat_window.SetActive()
+        self.weixin_window = auto.WindowControl(searchDepth=1, ClassName='mmui::MainWindow')
+        self.weixin_window.SetActive()
         self.tab_bar_items = {TabBarItemType(tab_bar.Name): tab_bar for tab_bar in
-                              self.wechat_window.ToolBarControl(searchDepth=4,
+                              self.weixin_window.ToolBarControl(searchDepth=4,
                                                                 searAutomationId='main_tabbar').GetChildren()}
-        self.search_bar = self.wechat_window.EditControl(searchDepth=10, ClassName='mmui::XlineEdit')
+        self.search_bar = self.weixin_window.EditControl(searchDepth=10, ClassName='mmui::XlineEdit')
         self.chats = self.get_chat_dict()
         self.sns_window = None
         self.sns_window_tool_bar_items = {}
-        self.chat_message_page = self.wechat_window.GroupControl(AutomationId='chat_message_page')
+        self.chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page')
         self.chat_message_list = self.chat_message_page.ListControl(AutomationId='chat_message_list')
 
     def on(self, message_type: MessageType):
@@ -119,11 +120,10 @@ class WeChatClient:
                 utils.choose_file(self.sns_window.WindowControl(Name='打开'), image)
             x_drag_grid_view.ListItemControl(searchDepth=1, ClassName='mmui::PublishImageGridCell').GetChildren()
             utils.print_control_tree(self.sns_window)
-
-        # sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
+        sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
 
     def get_chat_dict(self) -> dict[str, Control]:
-        chat_list = self.wechat_window.ListControl(ClassName='mmui::XTableView')
+        chat_list = self.weixin_window.ListControl(ClassName='mmui::XTableView')
         return {chat.Name: chat for chat in chat_list.GetChildren()}
 
     def send_msg(self, msg: str, to: str, at_users: str | list[str] = None, exact_match: bool = False,
@@ -141,10 +141,10 @@ class WeChatClient:
             edit_box.SendKeys('{Enter}')
 
     def click_moments(self):
-        if not self.wechat_window:
+        if not self.weixin_window:
             return False
 
-        moments_button = self.wechat_window.ButtonControl(searchDepth=5, Name='朋友圈')
+        moments_button = self.weixin_window.ButtonControl(searchDepth=5, Name='朋友圈')
         if moments_button.Exists():
             moments_button.Click()
             print('已点击朋友圈按钮')
@@ -154,10 +154,10 @@ class WeChatClient:
         return False
 
     def scroll_and_parse_moments(self, scroll_times=5):
-        if not self.wechat_window:
+        if not self.weixin_window:
             return []
 
-        moments_scroll = self.wechat_window.PaneControl(searchDepth=5, AutomationId='moments_scroll')
+        moments_scroll = self.weixin_window.PaneControl(searchDepth=5, AutomationId='moments_scroll')
         if not moments_scroll.Exists():
             print('朋友圈滚动区域未找到')
             return []
@@ -177,10 +177,10 @@ class WeChatClient:
         return posts_content
 
     def search_official_account(self, account_name):
-        if not self.wechat_window:
+        if not self.weixin_window:
             return False
 
-        search_edit = self.wechat_window.EditControl(
+        search_edit = self.weixin_window.EditControl(
             ControlType=auto.EditControl.ControlType,
             Name=''
         )
@@ -196,17 +196,17 @@ class WeChatClient:
         return False
 
     def init_search(self):
-        if not self.wechat_window:
+        if not self.weixin_window:
             return False
         self.search_bar.Click(simulateMove=False)
-        self.wechat_window.ListItemControl(Name='搜索网络结果').Click(simulateMove=False)
-        self.wechat_window.DocumentControl(Name='搜一搜')
-        self.wechat_window.EditControl().SendKeys('')
+        self.weixin_window.ListItemControl(Name='搜索网络结果').Click(simulateMove=False)
+        self.weixin_window.DocumentControl(Name='搜一搜')
+        self.weixin_window.EditControl().SendKeys('')
 
     def send_typing_text(self, text: str, min_interval: float = 0.1, max_interval: float = 0.3) -> bool:
         import random
 
-        edit_box = self.wechat_window.EditControl(Name='输入')
+        edit_box = self.weixin_window.EditControl(Name='输入')
         if not edit_box.Exists(3):
             return False
 
