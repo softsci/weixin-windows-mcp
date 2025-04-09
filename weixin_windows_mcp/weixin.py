@@ -122,7 +122,7 @@ class Weixin:
             utils.print_control_tree(self.sns_window)
         sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
 
-    def get_chat_dict(self) -> dict[str, Control]:
+    def get_chat_dict(self,max_chats: int = 100) -> dict[str, Control]:
         chat_list = self.weixin_window.ListControl(ClassName='mmui::XTableView')
         return {chat.Name: chat for chat in chat_list.GetChildren()}
 

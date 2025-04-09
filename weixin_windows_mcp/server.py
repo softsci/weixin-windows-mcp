@@ -34,7 +34,7 @@ app.mount("/", mcp.sse_app())
 @mcp.tool()
 def publish_moment(ctx: Context, content: str, images: list[str] | None = None):
     """Tool that uses initialized resources"""
-    weixin = ctx.request_context.lifespan_context.weixin
+    weixin = ctx.request_context.lifespan_context['weixin']
     weixin.publish(content, images)
 
 

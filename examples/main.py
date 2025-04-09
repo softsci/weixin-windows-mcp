@@ -1,33 +1,32 @@
-from weixin_windows_mcp.weixin import WeChatClient, MessageType
+from weixin_windows_mcp.weixin import Weixin, MessageType
 
-client = WeChatClient()
+weixin = Weixin()
 
 
-@client.on(MessageType.TEXT)
+@weixin.on(MessageType.TEXT)
 def handle_text(message):
     print('text')
     print(message)
 
 
-@client.on(MessageType.IMAGE)
+@weixin.on(MessageType.IMAGE)
 def handle_image(message):
     if message.Name == '图片':
-        client.click_media(message)
+        weixin.click_media(message)
         # preview_window = auto.WindowControl(ClassName='mmui::PreviewWindow')
         print('image')
 
 
-@client.on(MessageType.SYSTEM)
+@weixin.on(MessageType.SYSTEM)
 def handle_system(message):
     print('system')
 
 
 def main():
-    client = WeChatClient()
-    client.add_message_handler(MessageType.TEXT, lambda message: print(message))
-    client.get_msg()
-    # client.publish('朋友圈自动发布器v1.0', images=[r'E:\xxd\workspace\databox\databox\wechat\chat\test.jpg'] * 1)
-    client.start()
+    weixin.add_message_handler(MessageType.TEXT, lambda message: print(message))
+    weixin.get_msg()
+    # client.publish('朋友圈自动发布器v1.0', images=[r''] * 1)
+    weixin.start()
 
 
 if __name__ == "__main__":
