@@ -19,7 +19,7 @@ def print_control_tree(control: Control, level=0):
         print_control_tree(child, level + 1)
 
 
-def ensure_visible(element, container=None):
+def ensure_visible(element: Control, container=None):
     """确保元素在容器的可见区域内
 
     Args:

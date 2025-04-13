@@ -1,9 +1,11 @@
+import random
 import time
-from enum import StrEnum
+from enum import StrEnum, IntEnum
 from typing import Callable, Any, Self
+from urllib.parse import quote
 
 import uiautomation as auto
-from uiautomation import Control
+from uiautomation import Control, WindowControl, GroupControl
 
 from weixin_windows_mcp import utils
 
@@ -43,28 +45,227 @@ class MessageType(StrEnum):
     SYSTEM = 'system'
 
 
+class ChatMessagePageType(IntEnum):
+    PERSON = 1
+    GROUP = 2
+
+
+class SearchType(IntEnum):
+    ALL = 0
+    ACCOUNT = 33554499
+    VIDEO = 7
+    ARTICLES = 2
+    STICKERS = 384
+    ENCYCLOPEDIA = 16777728
+    LIVE_STREAM = 9
+    IMAGE = 17825792
+    BOOKS = 1024
+    LISTEN = 512
+    NEWS = 16384
+    INQUIRIES = 16777728
+    WEIXIN_INDEX = 8192
+    MOMENTS = 8
+    OFFICIAL_ACCOUNTS = 1
+    MINI_PROGRAMS = 262208
+
+
+class ContactsMasterSubTypeCellViewType(StrEnum):
+    GROUP = '群聊'
+    OFFICIAL_ACCOUNT = '公众号'
+    SERVICE_ACCOUNT = '服务号'
+    ENTERPRISE_CONTACT = '企业微信联系人'
+    CONTACT = '联系人'
+
+
+class ChatMessagePage:
+
+    def __init__(self, chat_name: str, chat_count: int | None = None, control: Control | None = None,
+                 weixin_window: WindowControl | None = None):
+        self.chat_name = chat_name
+        self.chat_count = chat_count
+        self.control = control
+        self.weixin_window = weixin_window
+        if chat_count is not None:
+            self.chat_type = ChatMessagePageType.GROUP
+        else:
+            self.chat_type = ChatMessagePageType.PERSON
+        self.type = type
+
+    def send_msg(self, msg: str, at: str | list[str] = None, exact_match: bool = False,
+                 typing: bool = False) -> None:
+        chat_input_field = self.control.EditControl(AutomationId='chat_input_field', Depth=6)
+        chat_input_field.SetFocus()
+        self._at(at)
+        if typing:
+            # 使用打字模式
+            self.send_typing_text(msg)
+        else:
+            # 使用剪贴板模式
+            auto.SetClipboardText(msg)
+            chat_input_field.SendKeys('{Ctrl}v')
+        chat_input_field.SendKeys('{Enter}')
+
+    def send_typing_text(self, text: str, min_interval: float = 0.1, max_interval: float = 0.3) -> bool:
+        edit_box = self.weixin_window.EditControl(Name='输入')
+        if not edit_box.Exists(3):
+            return False
+        edit_box.Click(simulateMove=False)
+        self.type_text(edit_box, text)
+        return True
+
+    def _at(self, at: str | list[str] = None):
+        if self.chat_type == ChatMessagePageType.PERSON:
+            return
+        if at:
+            at_users = [at] if isinstance(at, str) else at
+            for at_user in at_users:
+                auto.SendKeys('@' + at_user)
+                chat_mention_list = self.weixin_window.PaneControl(AutomationId='chat_mention_list')
+                if chat_mention_list.Exists(maxSearchSeconds=0.1):
+                    chat_mention_list.SendKeys('{ENTER}')
+
+    @classmethod
+    def from_control(cls, chat_message_page_control: Control, weixin_window: WindowControl) -> Self:
+        chat_info_view = chat_message_page_control.GroupControl(ClassName='mmui::ChatInfoView')
+        chat_name_control = chat_info_view.TextControl(
+            AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label')
+        chat_name = chat_name_control.Name
+        chat_count_control = chat_info_view.TextControl(
+            AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_count_label')
+        chat_count = None
+        if chat_count_control.Exists(maxSearchSeconds=0.1):
+            count_text = chat_count_control.Name.strip('()')
+            chat_count = int(count_text)
+
+        return cls(
+            chat_name=chat_name,
+            chat_count=chat_count,
+            control=chat_message_page_control,
+            weixin_window=weixin_window
+        )
+
+
 class Weixin:
     IMAGE_X_OFFSET = 70
     IMAGE_Y_OFFSET = 30
 
+    ARTICLE_TITLE_TEXT_WIDTH = 266
+    ARTICLE_TITLE_TEXT_HEIGHT = 21
+
     def __init__(self):
         self._handlers = {}
-        self.weixin_window = auto.WindowControl(searchDepth=1, ClassName='mmui::MainWindow')
+        self.weixin_window = auto.WindowControl(ClassName='mmui::MainWindow', Depth=1)
         self.weixin_window.SetActive()
         self.tab_bar_items = {TabBarItemType(tab_bar.Name): tab_bar for tab_bar in
-                              self.weixin_window.ToolBarControl(searchDepth=4,
-                                                                searAutomationId='main_tabbar').GetChildren()}
-        self.search_bar = self.weixin_window.EditControl(searchDepth=10, ClassName='mmui::XlineEdit')
-        self.chats = self.get_chat_dict()
+                              self.weixin_window.ToolBarControl(AutomationId='main_tabbar', Depth=4).GetChildren()}
+        self.search_bar = self.weixin_window.EditControl(ClassName='mmui::XLineEdit', Depth=10)
+        self.chats = {}
         self.sns_window = None
         self.sns_window_tool_bar_items = {}
         self.chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page')
         self.chat_message_list = self.chat_message_page.ListControl(AutomationId='chat_message_list')
+        self.current_chat = None
+
+    def send_msg(self, msg: str, to: str = None, at: str | list[str] = None, exact_match: bool = False,
+                 typing: bool = False) -> None:
+        if not msg and not at:
+            return
+        if not self.current_chat and not to:
+            return
+        self._chat_to(to)
+        self.current_chat.send_msg(msg, at, exact_match, typing)
+
+    def _chat_to(self, to):
+        if self.current_chat and self.current_chat.chat_name == to:
+            return
+        if auto.WindowControl(ClassName='mmui::FramelessMainWindow', Depth=1).GroupControl(
+                AutomationId='chat_message_page').Exists(maxSearchSeconds=0.1):
+            self.current_chat = ChatMessagePage.from_control(
+                auto.WindowControl(Depth=1, ClassName='mmui::FramelessMainWindow')
+                .GroupControl(AutomationId='chat_message_page'),
+                self.weixin_window)
+        elif to in self.chats:
+            self.current_chat = self.chats[to]
+        else:
+            print(to)
+            self.search(to).Click()
+            self.current_chat = ChatMessagePage.from_control(
+                self.weixin_window.GroupControl(AutomationId='chat_message_page'), self.weixin_window)
+
+    def search(self, query: str) -> GroupControl:
+        self.tab_bar_items[TabBarItemType.MINI_PROGRAMS].Click()
+        search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
+        search_pane.PaneControl(Depth=6,
+                                Compare=lambda control, _: control.BoundingRectangle.width() == 32
+                                                           and control.BoundingRectangle.height() == 32).Click()
+        search_pane.EditControl(Depth=7).Click()
+        search_bar = search_pane.EditControl(Depth=7)
+        auto.SetClipboardText(query)
+        search_bar.SendKeys('{Ctrl}v')
+        search_bar.SendKeys('{Enter}')
+        # when search finish, document control has name
+        search_pane.DocumentControl(Name='', ClassName='Chrome_RenderWidgetHostHWND', Depth=1).Disappears()
+        return search_pane.GroupControl(AutomationId='search_result', Depth=6,
+                                        Compare=lambda control, _: control.BoundingRectangle.height() > 0)
+
+    @staticmethod
+    def type_text(control: Control, text, min_interval: float = 0.1, max_interval: float = 0.3):
+        for char in text:
+            control.SendKeys(char, waitTime=0)
+            # 随机等待时间，模拟真实输入
+            time.sleep(random.uniform(min_interval, max_interval))
+
+    def history_articles(self, account):
+        search_url = self.get_search_url(account, search_type=SearchType.OFFICIAL_ACCOUNTS)
+        search_result = self.search(search_url)
+        search_result.ButtonControl(Depth=5).Click()
+        official_account_pane = auto.PaneControl(Name='公众号', ClassName='Chrome_WidgetWin_0', Depth=1)
+        history_articles = []
+        skip_group = False
+        for child in official_account_pane.GroupControl(
+                Depth=5).GetLastChildControl().GetLastChildControl().GetChildren():
+            utils.print_control_tree(child)
+            if child.IsOffscreen:
+                break
+            match type(child):
+                case auto.TextControl:
+                    if child.TextControl(Depth=1).Name == '作者精选':
+                        skip_group = True
+                    else:
+                        skip_group = False
+                case auto.GroupControl:
+                    if skip_group:
+                        continue
+                    else:
+                        article_title = child.TextControl(Depth=2).Name
+                        article_stats = child.TextControl(Depth=3).Name.replace(' ', '')
+                        history_articles.append((article_title, article_stats))
+        print(history_articles)
+        return history_articles
+
+    def get_contact_dict(self) -> dict[str, list]:
+        contact_list = self.weixin_window.ListControl(AutomationId='contact_list', Depth=7)
+        contact_list.Click()
+        contact_dict = {}
+        current_type = None
+        for item in contact_list.GetChildren():
+            print(item)
+
+            match item.ClassName:
+                case 'mmui::ContactsMasterSubTypeCellView':
+                    if current_type:
+                        contact_dict[current_type] = []
+                    current_type = ContactsMasterSubTypeCellViewType(item.Name)
+                case 'mmui::ContactsMasterCellView':
+                    contact_dict[current_type].append(item.Name)
+        return contact_dict
 
     def on(self, message_type: MessageType):
         """装饰器方法"""
 
         def decorator(handler):
+            if message_type not in self._handlers:
+                self._handlers[message_type] = []
             self._handlers[message_type].append(handler)
             return handler
 
@@ -102,49 +303,42 @@ class Weixin:
         if images and len(images) > 9:
             raise ValueError('朋友圈图片数量不能超过9张')
         self.tab_bar_items[TabBarItemType.MOMENTS].Click(simulateMove=False)
-        self.sns_window = auto.WindowControl(searchDepth=1, ClassName='mmui::SNSWindow')
+        self.sns_window = auto.WindowControl(ClassName='mmui::SNSWindow', Depth=1)
         self.sns_window.SetActive()
         self.sns_window_tool_bar_items = {SNSWindowToolBarItemType(tool_bar_item.Name): tool_bar_item for tool_bar_item
-                                          in self.sns_window.ToolBarControl(searchDepth=3,
-                                                                            AutomationId='sns_window_tool_bar').GetChildren()}
+                                          in self.sns_window.ToolBarControl(AutomationId='sns_window_tool_bar',
+                                                                            Depth=3).GetChildren()}
         self.sns_window_tool_bar_items[SNSWindowToolBarItemType.POST].Click()
-        sns_publish_panel = self.sns_window.GroupControl(searchDepth=4, AutomationId='SnsPublishPanel')
+        sns_publish_pane = self.sns_window.GroupControl(AutomationId='SnsPublishpane', Depth=4)
         if msg:
-            reply_input_field = sns_publish_panel.EditControl(searchDepth=8, ClassName='mmui::ReplyInputField')
-            reply_input_field.SendKeys('{Ctrl}a{Delete}')
+            reply_input_field = sns_publish_pane.EditControl(ClassName='mmui::ReplyInputField', Depth=8)
+            reply_input_field.SendKeys('{Ctrl}a{Del}')
             reply_input_field.SendKeys(msg)
         if images:
-            x_drag_grid_view = sns_publish_panel.ListControl(ClassName='mmui::XDragGridView')
+            x_drag_grid_view = sns_publish_pane.ListControl(ClassName='mmui::XDragGridView')
             for image in images:
                 x_drag_grid_view.ListItemControl(ClassName='mmui::PublishImageAddGridCell').Click()
                 utils.choose_file(self.sns_window.WindowControl(Name='打开'), image)
-            x_drag_grid_view.ListItemControl(searchDepth=1, ClassName='mmui::PublishImageGridCell').GetChildren()
+            x_drag_grid_view.ListItemControl(ClassName='mmui::PublishImageGridCell', Depth=1).GetChildren()
             utils.print_control_tree(self.sns_window)
-        sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
+        sns_publish_pane.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
 
-    def get_chat_dict(self,max_chats: int = 100) -> dict[str, Control]:
-        chat_list = self.weixin_window.ListControl(ClassName='mmui::XTableView')
-        return {chat.Name: chat for chat in chat_list.GetChildren()}
-
-    def send_msg(self, msg: str, to: str, at_users: str | list[str] = None, exact_match: bool = False,
-                 typing: bool = False) -> None:
-        if to in self.chats:
-            self.chats[to].Click(simulateMove=False)
-            edit_box = self.chat_content.EditControl(Name=to)
-            if typing:
-                # 使用打字模式
-                self.send_typing_text(msg)
-            else:
-                # 使用剪贴板模式
-                auto.SetClipboardText(msg)
-                edit_box.SendKeys('{Ctrl}v')
-            edit_box.SendKeys('{Enter}')
+    def get_chat_dict(self, max_chats: int = 100) -> dict[str, Control]:
+        chat_list = self.weixin_window.ListControl(AutomationId='session_list')
+        chat_dict = dict()
+        for chat in chat_list.GetChildren():
+            utils.ensure_visible(chat)
+            chat.Click(simulateMove=False)
+            chat_name = self.weixin_window.GroupControl(ClassName='mmui::ChatInfoView').TextControl(
+                AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label').Name
+            chat_dict[chat_name] = chat
+        return chat_dict
 
     def click_moments(self):
         if not self.weixin_window:
             return False
 
-        moments_button = self.weixin_window.ButtonControl(searchDepth=5, Name='朋友圈')
+        moments_button = self.weixin_window.ButtonControl(Name='朋友圈', Depth=5)
         if moments_button.Exists():
             moments_button.Click()
             print('已点击朋友圈按钮')
@@ -157,7 +351,7 @@ class Weixin:
         if not self.weixin_window:
             return []
 
-        moments_scroll = self.weixin_window.PaneControl(searchDepth=5, AutomationId='moments_scroll')
+        moments_scroll = self.weixin_window.PaneControl(AutomationId='moments_scroll', Depth=5)
         if not moments_scroll.Exists():
             print('朋友圈滚动区域未找到')
             return []
@@ -203,18 +397,6 @@ class Weixin:
         self.weixin_window.DocumentControl(Name='搜一搜')
         self.weixin_window.EditControl().SendKeys('')
 
-    def send_typing_text(self, text: str, min_interval: float = 0.1, max_interval: float = 0.3) -> bool:
-        import random
-
-        edit_box = self.weixin_window.EditControl(Name='输入')
-        if not edit_box.Exists(3):
-            return False
-
-        edit_box.Click(simulateMove=False)
-
-        for char in text:
-            edit_box.SendKeys(char, waitTime=0)  # waitTime=0 避免内部延迟
-            # 随机等待时间，模拟真实输入
-            time.sleep(random.uniform(min_interval, max_interval))
-
-        return True
+    @staticmethod
+    def get_search_url(query: str, lang: str = 'zh_CN', search_type: SearchType = SearchType.ALL):
+        return f'weixin://resourceid/Search/app.html?isHomePage=0&lang={lang}&scene=85&query={quote(query)}&type={search_type.value}'

@@ -32,9 +32,21 @@ app.mount("/", mcp.sse_app())
 
 
 @mcp.tool()
+def send_msg(ctx: Context, msg: str, to: str):
+    print(msg, to)
+    weixin = ctx.request_context.lifespan_context.weixin
+    weixin.send_msg(msg, to)
+
+
+@mcp.tool()
+def history_articles(ctx: Context, account: str):
+    weixin = ctx.request_context.lifespan_context.weixin
+    return weixin.history_articles(account)
+
+
+@mcp.tool()
 def publish_moment(ctx: Context, content: str, images: list[str] | None = None):
-    """Tool that uses initialized resources"""
-    weixin = ctx.request_context.lifespan_context['weixin']
+    weixin = ctx.request_context.lifespan_context.weixin
     weixin.publish(content, images)
 
 

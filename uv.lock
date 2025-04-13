@@ -739,6 +739,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "mcp", extra = ["cli"] },
+    { name = "pydantic" },
     { name = "uiautomation" },
 ]
 
@@ -746,5 +747,6 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
+    { name = "pydantic", specifier = ">=2.11.2" },
     { name = "uiautomation", specifier = ">=2.0.20" },
 ]
