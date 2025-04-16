@@ -2,9 +2,8 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator
 
-import uvicorn
 from fastapi import FastAPI
-from mcp.server.fastmcp import Context, FastMCP
+from fastmcp import FastMCP, Context
 
 from weixin import Weixin
 
@@ -51,4 +50,4 @@ def publish_moment(ctx: Context, content: str, images: list[str] | None = None):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    mcp.run()

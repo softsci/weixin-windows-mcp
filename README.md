@@ -7,7 +7,7 @@ npx @modelcontextprotocol/inspector
 ## 公众号历史消息
 
 ```text
-https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzU0NDk4OTk2Mg==
+https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MTI0MDU3NDYwMQ==
 ```
 
 ## 公众号网页打开后，点击账号弹出的二维码链接
