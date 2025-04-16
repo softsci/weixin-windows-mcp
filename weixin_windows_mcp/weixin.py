@@ -238,7 +238,7 @@ class Weixin:
                         continue
                     else:
                         article_title = child.TextControl(Depth=2).Name
-                        article_stats = child.TextControl(Depth=3).Name.replace('\u2004', '').replace('\u2005', '').replace('\u2006', '')
+                        article_stats = child.TextControl(Depth=3).Name.replace('\u2004', ' ').replace('\u2005', ' ').replace('\u2006', ' ')
                         history_articles.append((article_title, article_stats))
         return history_articles
 
