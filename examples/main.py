@@ -24,7 +24,7 @@ weixin = Weixin()
 
 
 def main():
-    articles = weixin.history_articles('')
+    articles = weixin.history_articles('央视新闻')
     print(articles)
 
 
