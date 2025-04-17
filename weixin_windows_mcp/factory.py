@@ -1,12 +1,21 @@
 import platform
 
-from weixin_windows_mcp.weixin import WindowsWeixin
+WindowsWeixin = None
+MacWeixin = None
+
+# 根据平台条件导入
+current_platform = platform.system().lower()
+if current_platform == "windows":
+    from weixin_windows_mcp.windows_weixin import WindowsWeixin
+elif current_platform == "darwin":
+    from weixin_windows_mcp.mac_weixin import MacWeixin
+else:
+    raise ValueError(f"不支持的平台: {current_platform}")
 
 
 class WeixinFactory:
     @staticmethod
     def create_weixin():
-        current_platform = platform.system().lower()
         platform_to_class = {
             "windows": WindowsWeixin,
             "darwin": MacWeixin

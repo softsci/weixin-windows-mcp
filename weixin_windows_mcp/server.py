@@ -2,10 +2,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator
 
-from fastapi import FastAPI
 from fastmcp import FastMCP, Context
-
-from weixin import Weixin
+from weixin_windows_mcp.factory import WeixinFactory
+from weixin_windows_mcp.weixin import Weixin
 
 
 @dataclass
@@ -17,7 +16,7 @@ class AppContext:
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Manage application lifecycle with type-safe context"""
     # Initialize on startup
-    weixin = Weixin()
+    weixin = WeixinFactory.create_weixin()
     try:
         yield AppContext(weixin=weixin)
     finally:
@@ -25,9 +24,6 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 
 
 mcp = FastMCP("Weixin MCP Service 🤖", lifespan=app_lifespan)
-
-app = FastAPI()
-app.mount("/", mcp.sse_app())
 
 
 @mcp.tool()
@@ -38,9 +34,16 @@ def send_msg(ctx: Context, msg: str, to: str):
 
 
 @mcp.tool()
-def history_articles(ctx: Context, account: str):
+def history_articles(ctx: Context, account: str, limit: int = 1):
     weixin = ctx.request_context.lifespan_context.weixin
-    return weixin.history_articles(account)
+    return weixin.history_articles(account, limit)
+
+
+@mcp.tool()
+async def summary_article(ctx: Context, url: str):
+    prompt = f"总结一下这个链接里的文章下面的文章: {url}"
+    response = await ctx.sample(prompt)
+    return response.text
 
 
 @mcp.tool()
@@ -49,5 +52,9 @@ def publish_moment(ctx: Context, content: str, images: list[str] | None = None):
     weixin.publish(content, images)
 
 
-if __name__ == "__main__":
+def main():
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

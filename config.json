@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "weixin-windows": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "E:\\xxd\\workspace\\weixin-windows-mcp",
+        "run",
+        "weixin-windows"
+      ]
+    }
+  }
+}

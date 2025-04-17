@@ -1,6 +1,6 @@
-from weixin_windows_mcp.weixin import Weixin
+from weixin_windows_mcp.factory import WeixinFactory
 
-weixin = Weixin()
+weixin = WeixinFactory.create_weixin()
 
 
 #
@@ -24,7 +24,7 @@ weixin = Weixin()
 
 
 def main():
-    articles = weixin.history_articles('央视新闻')
+    articles = weixin.history_articles('央视新闻', 1)
     print(articles)
 
 

@@ -4,9 +4,10 @@ from enum import StrEnum, IntEnum
 from typing import Callable, Any, Self
 from urllib.parse import quote
 
+import win32gui
+
 import uiautomation as auto
 from uiautomation import Control, WindowControl, GroupControl
-
 from weixin_windows_mcp import utils
 from weixin_windows_mcp.weixin_base import Weixin
 
@@ -114,6 +115,13 @@ class ChatMessagePage:
         self.type_text(edit_box, text)
         return True
 
+    @staticmethod
+    def type_text(control: Control, text, min_interval: float = 0.1, max_interval: float = 0.3):
+        for char in text:
+            control.SendKeys(char, waitTime=0)
+            # 随机等待时间，模拟真实输入
+            time.sleep(random.uniform(min_interval, max_interval))
+
     def _at(self, at: str | list[str] = None):
         if self.chat_type == ChatMessagePageType.PERSON:
             return
@@ -166,6 +174,15 @@ class WindowsWeixin(Weixin):
         self.chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page')
         self.chat_message_list = self.chat_message_page.ListControl(AutomationId='chat_message_list')
         self.current_chat = None
+        self.hwnd = win32gui.FindWindow('Qt51514QWindowIcon', '微信')
+        print(self.hwnd)
+
+    def _show(self):
+        """强制将微信窗口前置"""
+        win32gui.ShowWindow(self.hwnd, 1)
+        win32gui.SetWindowPos(self.hwnd, -1, 0, 0, 0, 0, 3)
+        win32gui.SetWindowPos(self.hwnd, -2, 0, 0, 0, 0, 3)
+        self.weixin_window.SwitchToThisWindow()
 
     def send_msg(self, msg: str, to: str = None, at: str | list[str] = None, exact_match: bool = False,
                  typing: bool = False) -> None:
@@ -196,9 +213,8 @@ class WindowsWeixin(Weixin):
     def search(self, query: str) -> GroupControl:
         self.tab_bar_items[TabBarItemType.MINI_PROGRAMS].Click()
         search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
-        search_pane.PaneControl(Depth=6,
-                                Compare=lambda control, _: control.BoundingRectangle.width() == 32
-                                                           and control.BoundingRectangle.height() == 32).Click()
+        search_pane.PaneControl(Depth=6, Compare=lambda control,
+                                                        _: control.BoundingRectangle.width() == 32 and control.BoundingRectangle.height() == 32).Click()
         search_pane.EditControl(Depth=7).Click()
         search_bar = search_pane.EditControl(Depth=7)
         auto.SetClipboardText(query)
@@ -209,23 +225,17 @@ class WindowsWeixin(Weixin):
         return search_pane.GroupControl(AutomationId='search_result', Depth=6,
                                         Compare=lambda control, _: control.BoundingRectangle.height() > 0)
 
-    @staticmethod
-    def type_text(control: Control, text, min_interval: float = 0.1, max_interval: float = 0.3):
-        for char in text:
-            control.SendKeys(char, waitTime=0)
-            # 随机等待时间，模拟真实输入
-            time.sleep(random.uniform(min_interval, max_interval))
-
-    def history_articles(self, account):
+    def history_articles(self, account: str, limit: int) -> list[dict]:
+        self._show()
         search_url = self.get_search_url(account, search_type=SearchType.OFFICIAL_ACCOUNTS)
         search_result = self.search(search_url)
         search_result.ButtonControl(Depth=5).Click()
         official_account_pane = auto.PaneControl(Name='公众号', ClassName='Chrome_WidgetWin_0', Depth=1)
-        history_articles = []
         skip_group = False
+        official_account_pane.HyperlinkControl(Name='消息').Exists()
+        history_articles = []
         for child in official_account_pane.GroupControl(
                 Depth=5).GetLastChildControl().GetLastChildControl().GetChildren():
-            utils.print_control_tree(child)
             if child.IsOffscreen:
                 break
             match type(child):
@@ -239,8 +249,28 @@ class WindowsWeixin(Weixin):
                         continue
                     else:
                         article_title = child.TextControl(Depth=2).Name
-                        article_stats = child.TextControl(Depth=3).Name.replace('\u2004', ' ').replace('\u2005', ' ').replace('\u2006', ' ')
-                        history_articles.append((article_title, article_stats))
+                        article_stats = (child.TextControl(Depth=3).Name.replace('\u2004', ' ')
+                                         .replace('\u2005', ' ')
+                                         .replace('\u2006', ' '))
+                        child.Click()
+                        search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
+                        # 存在跟踪信息，可能被封禁，备用
+                        # article_url = search_pane.DocumentControl(Name=article_title,
+                        #                                           ClassName='Chrome_RenderWidgetHostHWND',
+                        #                                           Depth=1).GetValuePattern().Value
+                        more_button = search_pane.MenuItemControl(Name='更多', Depth=5)
+                        close_button = more_button.GetParentControl().GetParentControl().ButtonControl(Name='关闭')
+                        more_button.Click()
+                        search_pane.MenuItemControl(Name='复制链接', Depth=6).Click()
+                        close_button.Click()
+                        article_url = auto.GetClipboardText()
+                        history_articles.append({
+                            'title': article_title,
+                            'stats': article_stats,
+                            'url': article_url
+                        })
+                        if len(history_articles) >= limit:
+                            return history_articles
         return history_articles
 
     def get_contact_dict(self) -> dict[str, list]:
