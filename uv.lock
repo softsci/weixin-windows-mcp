@@ -3086,7 +3086,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "pyobjc", marker = "sys_platform == 'darwin'" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "uiautomation", marker = "sys_platform == 'win32'" },
+    { name = "uiautomation" },
 ]
 
 [package.metadata]
@@ -3094,5 +3094,5 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=2.2.0" },
     { name = "pyobjc", marker = "sys_platform == 'darwin'" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=310" },
-    { name = "uiautomation", marker = "sys_platform == 'win32'", specifier = ">=2.0.25" },
+    { name = "uiautomation", specifier = ">=2.0.25" },
 ]
