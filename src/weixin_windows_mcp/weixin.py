@@ -1,7 +1,7 @@
 import inspect
 import threading
 from abc import abstractmethod, ABC
-from enum import IntEnum, StrEnum, auto
+from enum import IntEnum, StrEnum
 from urllib.parse import quote
 
 
@@ -156,53 +156,20 @@ class Weixin(ABC):
     def _navigate_to_chat(self, to: str, exact_match=False) -> Chat:
         raise NotImplementedError()
 
-    def history_articles(self, account: str, limit: int) -> list[dict]:
-        self.show()
+    def history_articles(self, account: str, limit: int = 1) -> list[dict]:
+        self._show()
         search_url = self.get_search_url(account, search_type=SearchType.OFFICIAL_ACCOUNTS)
-        search_result = self.search(search_url)
-        search_result.ButtonControl(Depth=5).Click()
-        official_account_pane = auto.PaneControl(Name='公众号', ClassName='Chrome_WidgetWin_0', Depth=1)
-        skip_group = False
-        official_account_pane.HyperlinkControl(Name='消息').Exists()
-        history_articles = []
-        for child in official_account_pane.GroupControl(
-                Depth=5).GetLastChildControl().GetLastChildControl().GetChildren():
-            if child.IsOffscreen:
-                break
-            match type(child):
-                case auto.TextControl:
-                    if child.TextControl(Depth=1).Name == '作者精选':
-                        skip_group = True
-                    else:
-                        skip_group = False
-                case auto.GroupControl:
-                    if skip_group:
-                        continue
-                    else:
-                        article_title = child.TextControl(Depth=2).Name
-                        article_stats = (child.TextControl(Depth=3).Name.replace('\u2004', ' ')
-                                         .replace('\u2005', ' ')
-                                         .replace('\u2006', ' '))
-                        child.Click()
-                        search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
-                        # 存在跟踪信息，可能被封禁，备用
-                        # article_url = search_pane.DocumentControl(Name=article_title,
-                        #                                           ClassName='Chrome_RenderWidgetHostHWND',
-                        #                                           Depth=1).GetValuePattern().Value
-                        more_button = search_pane.MenuItemControl(Name='更多', Depth=5)
-                        close_button = more_button.GetParentControl().GetParentControl().ButtonControl(Name='关闭')
-                        more_button.Click()
-                        search_pane.MenuItemControl(Name='复制链接', Depth=6).Click()
-                        close_button.Click()
-                        article_url = auto.GetClipboardText()
-                        history_articles.append({
-                            'title': article_title,
-                            'stats': article_stats,
-                            'url': article_url
-                        })
-                        if len(history_articles) >= limit:
-                            return history_articles
-        return history_articles
+        self.search(search_url)
+        return self._history_articles(limit)
+        # search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
+        # search_pane.GroupControl(AutomationId='search_result', Depth=6,
+        #                          Compare=lambda control, _: control.BoundingRectangle.height() > 0)
+        # search_result = self.search(search_url)
+        # search_result.ButtonControl(Depth=5).Click()
+
+    @abstractmethod
+    def _history_articles(self, limit: int = 1) -> list[dict]:
+        raise NotImplementedError()
 
     def call_with_lock(self, callback, task_name=None):
         if task_name is None:

@@ -4,8 +4,8 @@ from typing import AsyncIterator
 
 from fastmcp import FastMCP, Context
 
-from weixin_windows_mcp.factory import WeixinFactory
-from weixin_windows_mcp.weixin import Weixin
+from src.weixin_windows_mcp.factory import WeixinFactory
+from src.weixin_windows_mcp.weixin import Weixin
 
 
 @dataclass

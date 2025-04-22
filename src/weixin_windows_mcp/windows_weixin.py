@@ -7,8 +7,8 @@ import uiautomation as auto
 import win32gui
 from uiautomation import Control, WindowControl
 
-from weixin_windows_mcp import utils
-from weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
+from src.weixin_windows_mcp import utils
+from src.weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
     MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat
 
 auto.uiautomation.DEBUG_SEARCH_TIME = True
@@ -158,7 +158,6 @@ class WindowsWeixin(Weixin):
         return WindowsChat.from_control(chat_message_page, self.weixin_window)
 
     def search_contact(self, name):
-        print('search contact')
         if self.search_bar.Exists(1):
             self.search_bar.SetFocus()
             # 有时候会触发一个奇怪的弹窗，强制关闭他
@@ -188,17 +187,15 @@ class WindowsWeixin(Weixin):
         # when search finish, document control has name
         search_pane.DocumentControl(Name='', ClassName='Chrome_RenderWidgetHostHWND', Depth=1).Disappears()
 
-    def history_articles(self, account: str, limit: int) -> list[dict]:
-        self.show()
-        search_url = self.get_search_url(account, search_type=SearchType.OFFICIAL_ACCOUNTS)
-        self.search(search_url)
-        search_result = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1).GroupControl(
+    def _history_articles(self, limit: int = 1) -> list[dict]:
+        search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
+        search_result = search_pane.GroupControl(
             AutomationId='search_result', Depth=6,
             Compare=lambda control, _: control.BoundingRectangle.height() > 0)
         search_result.ButtonControl(Depth=5).Click()
         official_account_pane = auto.PaneControl(Name='公众号', ClassName='Chrome_WidgetWin_0', Depth=1)
+        official_account_pane.HyperlinkControl(Name='消息').Exists(maxSearchSeconds=5)
         skip_group = False
-        official_account_pane.HyperlinkControl(Name='消息').Exists()
         history_articles = []
         for child in official_account_pane.GroupControl(
                 Depth=5).GetLastChildControl().GetLastChildControl().GetChildren():
@@ -219,7 +216,6 @@ class WindowsWeixin(Weixin):
                                          .replace('\u2005', ' ')
                                          .replace('\u2006', ' '))
                         child.Click()
-                        search_pane = auto.PaneControl(Name='微信', ClassName='Chrome_WidgetWin_0', Depth=1)
                         # 存在跟踪信息，可能被封禁，备用
                         # article_url = search_pane.DocumentControl(Name=article_title,
                         #                                           ClassName='Chrome_RenderWidgetHostHWND',

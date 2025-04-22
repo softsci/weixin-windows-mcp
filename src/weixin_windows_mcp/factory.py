@@ -6,9 +6,9 @@ MacWeixin = None
 # 根据平台条件导入
 current_platform = platform.system().lower()
 if current_platform == "windows":
-    from weixin_windows_mcp.windows_weixin import WindowsWeixin
+    from src.weixin_windows_mcp.windows_weixin import WindowsWeixin
 elif current_platform == "darwin":
-    from weixin_windows_mcp.mac_weixin import MacWeixin
+    from src.weixin_windows_mcp.mac_weixin import MacWeixin
 else:
     raise ValueError(f"不支持的平台: {current_platform}")
 
