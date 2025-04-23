@@ -1,13 +1,7 @@
 {
   "mcpServers": {
     "weixin-windows": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "E:\\xxd\\workspace\\weixin-windows-mcp",
-        "run",
-        "weixin-windows"
-      ]
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }

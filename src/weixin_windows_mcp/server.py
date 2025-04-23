@@ -88,7 +88,7 @@ def get_wx_mcp_prompt():
 
 
 def main():
-    mcp.run()
+    mcp.run(transport='sse')
 
 
 if __name__ == "__main__":

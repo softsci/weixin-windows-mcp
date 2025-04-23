@@ -167,6 +167,9 @@ class WindowsWeixin(Weixin):
                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE
             )
 
+            # 使用SetForegroundWindow确保窗口在最前面
+            win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
+
             # 最后再尝试常规激活
             self.weixin_window.SetActive()
 
@@ -174,25 +177,25 @@ class WindowsWeixin(Weixin):
         except Exception as e:
             print(f"激活窗口失败: {str(e)}")
             return False
-        win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
-        self.weixin_window.SetActive()
 
     def _navigate_to_chat(self, to: str, exact_match=False) -> Chat:
         chat_message_page = None
         if auto.WindowControl(ClassName='mmui::FramelessMainWindow', Depth=1).GroupControl(
-                AutomationId='chat_message_page').Exists(maxSearchSeconds=1,
+                AutomationId='chat_message_page').Exists(maxSearchSeconds=0.5,
                                                          printIfNotExist=True):
             chat_message_page = auto.WindowControl(ClassName='mmui::FramelessMainWindow', Depth=1).GroupControl(
                 AutomationId='chat_message_page')
-        elif self.weixin_window.GroupControl(AutomationId='chat_message_page').Exists(maxSearchSeconds=1,
+            print(1)
+        elif self.weixin_window.GroupControl(AutomationId='chat_message_page').Exists(maxSearchSeconds=0.5,
                                                                                       printIfNotExist=True):
             chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
         if chat_message_page and chat_message_page.GroupControl(ClassName='mmui::ChatInfoView').TextControl(
                 AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label').Name == to:
-            pass
+            print(2)
         else:
             self.search_contact(to)
             chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
+            print(3)
         return WindowsChat.from_control(chat_message_page, self.weixin_window)
 
     def search_contact(self, name):
