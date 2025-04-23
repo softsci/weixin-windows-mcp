@@ -134,8 +134,9 @@ class WindowsWeixin(Weixin):
             sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
 
     def _show(self):
-        win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 1)
-        time.sleep(0.5)
+        if win32gui.IsIconic(self.weixin_window.NativeWindowHandle):
+            win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 9)
+            time.sleep(0.5)
         win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
         # self.weixin_window.SwitchToThisWindow()
 
