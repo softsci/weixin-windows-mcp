@@ -7,8 +7,8 @@ import uiautomation as auto
 import win32gui
 from uiautomation import Control, WindowControl
 
-from src.weixin_windows_mcp import utils
-from src.weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
+from weixin_windows_mcp import utils
+from weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
     MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat
 
 auto.uiautomation.DEBUG_SEARCH_TIME = True

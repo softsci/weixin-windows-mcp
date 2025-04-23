@@ -1,4 +1,4 @@
-from src.weixin_windows_mcp.factory import WeixinFactory
+from weixin_windows_mcp.factory import WeixinFactory
 
 weixin = WeixinFactory.create_weixin()
 
