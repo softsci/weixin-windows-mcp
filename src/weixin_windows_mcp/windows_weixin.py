@@ -135,7 +135,7 @@ class WindowsWeixin(Weixin):
 
     def _show(self):
         win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 1)
-        time.sleep(0.1)
+        time.sleep(0.5)
         win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
         # self.weixin_window.SwitchToThisWindow()
 

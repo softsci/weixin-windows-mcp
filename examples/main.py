@@ -24,7 +24,7 @@ weixin = WeixinFactory.create_weixin()
 
 
 def main():
-    articles = weixin.history_articles('央视新闻')
+    articles = weixin.send_msg('元宝', '元宝')
     print(articles)
 
 

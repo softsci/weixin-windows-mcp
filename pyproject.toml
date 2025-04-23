@@ -13,4 +13,4 @@ dependencies = [
 ]
 
 [project.scripts]
-weixin-windows = "src.weixin_windows_mcp.server:main"
+weixin-windows = "weixin_windows_mcp.server:main"
