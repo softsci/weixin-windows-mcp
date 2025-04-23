@@ -4,6 +4,8 @@ from typing import Callable, Any, Self
 from urllib.parse import quote
 
 import uiautomation as auto
+import win32clipboard
+import win32con
 import win32gui
 from uiautomation import Control, WindowControl
 
@@ -47,7 +49,10 @@ class WindowsChat(Chat):
                 time.sleep(random.uniform(0.1, 0.3))
         else:
             # 使用剪贴板模式
-            auto.SetClipboardText(text)
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, text)
+            win32clipboard.CloseClipboard()
             auto.SendKeys('{Ctrl}v')
 
     def _send_input(self):
@@ -134,9 +139,41 @@ class WindowsWeixin(Weixin):
             sns_publish_panel.ButtonControl(ClassName='mmui::XOutlineButton', Name='发表').Click()
 
     def _show(self):
-        if win32gui.IsIconic(self.weixin_window.NativeWindowHandle):
-            win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 9)
-            time.sleep(0.5)
+        try:
+            # 检查窗口句柄
+            if not self.weixin_window.NativeWindowHandle:
+                print("无法获取微信窗口句柄")
+                return False
+
+            # 如果窗口最小化，先恢复
+            if win32gui.IsIconic(self.weixin_window.NativeWindowHandle):
+                win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 9)  # SW_RESTORE
+                time.sleep(1)  # Windows 11下需要更长的等待时间
+
+            # 使用临时置顶的技巧来激活窗口
+            win32gui.SetWindowPos(
+                self.weixin_window.NativeWindowHandle,
+                win32con.HWND_TOPMOST,
+                0, 0, 0, 0,
+                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE
+            )
+            time.sleep(0.2)
+
+            # 取消置顶，回到普通窗口状态
+            win32gui.SetWindowPos(
+                self.weixin_window.NativeWindowHandle,
+                win32con.HWND_NOTOPMOST,
+                0, 0, 0, 0,
+                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE
+            )
+
+            # 最后再尝试常规激活
+            self.weixin_window.SetActive()
+
+            return True
+        except Exception as e:
+            print(f"激活窗口失败: {str(e)}")
+            return False
         win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
         self.weixin_window.SetActive()
 
