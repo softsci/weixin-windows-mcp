@@ -138,7 +138,7 @@ class WindowsWeixin(Weixin):
             win32gui.ShowWindow(self.weixin_window.NativeWindowHandle, 9)
             time.sleep(0.5)
         win32gui.SetForegroundWindow(self.weixin_window.NativeWindowHandle)
-        # self.weixin_window.SwitchToThisWindow()
+        self.weixin_window.SetActive()
 
     def _navigate_to_chat(self, to: str, exact_match=False) -> Chat:
         chat_message_page = None
