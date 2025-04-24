@@ -4,6 +4,13 @@ from abc import abstractmethod, ABC
 from enum import IntEnum, StrEnum
 from urllib.parse import quote
 
+import arrow
+from pydantic import BaseModel
+
+
+class ChatLogMessage(BaseModel):
+    message: str
+
 
 class TabBarItemType(StrEnum):
     CHAT = '微信'
@@ -13,6 +20,13 @@ class TabBarItemType(StrEnum):
     MINI_PROGRAMS = '小程序面板'
     MOBILE = '手机'
     SETTINGS = '设置'
+
+
+class ChatToolBarButtonType(StrEnum):
+    EMOJI = '表情'
+    SEND_FILE = '发送文件'
+    HIDE_SCREENSHOT = '聊天时隐藏当前截图'
+    CHAT_HISTORY = '聊天记录'
 
 
 class SNSWindowToolBarItemType(StrEnum):
@@ -127,6 +141,16 @@ class Weixin(ABC):
             return
         current_chat.send_msg(msg, at, typing)
 
+    def send_file(self):
+        # AutomationId	tool_bar_accessible
+        pass
+
+    def search_chat_history(self, to: str, query=None, from_date: str = None, to_date: str = None):
+        self._show()
+        self._navigate_to_chat(to)
+        self._click_chat_tool_bar(ChatToolBarButtonType.CHAT_HISTORY)
+        self._search_chat_history(query, from_date, to_date)
+
     def publish_moment(self, msg: str, images=None):
         if images and len(images) > 9:
             raise ValueError('朋友圈图片数量不能超过9张')
@@ -134,15 +158,24 @@ class Weixin(ABC):
         self._publish_moment(msg, images)
 
     @abstractmethod
+    def _show(self):
+        pass
+
+    @abstractmethod
+    def _click_chat_tool_bar(self, button_type: ChatToolBarButtonType):
+        pass
+
+    @abstractmethod
+    def _search_chat_history(self, query: str = None, from_date: str = None, to_date: str = None) -> list[
+        ChatLogMessage]:
+        pass
+
+    @abstractmethod
     def _open_moment(self):
         pass
 
     @abstractmethod
     def _publish_moment(self, msg, images):
-        pass
-
-    @abstractmethod
-    def _show(self):
         pass
 
     def search(self, query):
@@ -198,6 +231,23 @@ class Weixin(ABC):
         """获取当前正在执行的任务名称"""
         return self._current_task
 
+    @staticmethod
+    def parse_chat_time(time_str):
+        patterns = [
+            "HH:mm"  # 没有前缀
+            "星期一 HH:mm",  # 星期几
+            "昨天 HH:mm",  # 昨天
+            "M月D日 HH:mm",  # 具体月日
+            "YYYY年M月D日 HH:mm",  # 具体年月日
+        ]
+        for pattern in patterns:
+            try:
+                return arrow.get(time_str, pattern)
+            except arrow.parser.ParserError:
+                continue
+        return None
+
+    # 示例使用
     @staticmethod
     def get_search_url(query: str, lang: str = 'zh_CN', search_type: SearchType = SearchType.ALL):
         return f'weixin://resourceid/Search/app.html?isHomePage=0&lang={lang}&scene=85&query={quote(query)}&type={search_type.value}'

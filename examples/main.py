@@ -24,7 +24,7 @@ weixin = WeixinFactory.create_weixin()
 
 
 def main():
-    articles = weixin.send_msg('📚你好元宝，最近过得怎么样呀？希望一切都好！', '元宝')
+    articles = weixin.search_chat_history('MCP交流共创', 'idoubi')
     print(articles)
 
 

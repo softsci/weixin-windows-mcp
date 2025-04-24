@@ -29,9 +29,36 @@ mcp = FastMCP("Weixin MCP Service 🤖", lifespan=app_lifespan)
 
 @mcp.tool()
 def send_msg(ctx: Context, msg: str, to: str):
-    print(msg, to)
+    """
+    发送消息
+    Args:
+        ctx:
+        msg: 消息内容
+        to: 账号名
+
+    Returns:
+
+    """
     weixin: Weixin = ctx.request_context.lifespan_context.weixin
     weixin.send_msg(msg, to)
+
+
+@mcp.tool()
+def search_chat_history(ctx: Context, account: str, query: str, from_date: str = None, to_date: str = None):
+    """
+    搜索聊天记录
+    Args:
+        ctx:
+        account: 账号名
+        query: 搜索文本
+        from_date:
+        to_date:
+
+    Returns:
+
+    """
+    weixin: Weixin = ctx.request_context.lifespan_context.weixin
+    return weixin.search_chat_history(account, query, from_date, to_date)
 
 
 @mcp.tool()

@@ -11,7 +11,8 @@ from uiautomation import Control, WindowControl
 
 from weixin_windows_mcp import utils
 from weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
-    MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat
+    MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat, ChatToolBarButtonType, \
+    ChatLogMessage
 
 auto.uiautomation.DEBUG_SEARCH_TIME = True
 
@@ -99,10 +100,28 @@ class WindowsWeixin(Weixin):
         self.chats = {}
         self.sns_window = None
         self.sns_window_tool_bar_items = {}
-        self.chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page')
+        self.chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
         self.chat_message_list = self.chat_message_page.ListControl(AutomationId='chat_message_list')
         self.current_chat = None
         self._handlers = {}
+
+    def _click_chat_tool_bar(self, button_type: ChatToolBarButtonType):
+        for child in self.chat_message_page.ToolBarControl(AutomationId='tool_bar_accessible').GetChildren():
+            if child.Name == button_type.value:
+                child.Click()
+
+    def _search_chat_history(self, query: str = None, from_date: str = None, to_date: str = None) -> list[
+        ChatLogMessage]:
+        search_msg_unique_chat_window = auto.WindowControl(ClassName='mmui::SearchMsgUniqueChatWindow',
+                                                           Depth=1)
+        utils.print_control_tree(search_msg_unique_chat_window)
+        if query:
+            search_msg_unique_chat_window.EditControl(ClassName='mmui::XLineEdit', Depth=5).SendKeys(query)
+            auto.SendKeys('{ENTER}')
+        chat_log_message_list = search_msg_unique_chat_window.ListControl(
+            AutomationId='chat_log_message_list', Depth=4)
+        chat_log_messages = [ChatLogMessage(message=child.Name) for child in chat_log_message_list.GetChildren()]
+        return chat_log_messages
 
     def _open_moment(self):
         self.tab_bar_items[TabBarItemType.MOMENTS].Click(simulateMove=False)
