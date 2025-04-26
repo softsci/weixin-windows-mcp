@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 
 class ChatLogMessage(BaseModel):
+    nickname: str
     message: str
 
 
@@ -42,6 +43,7 @@ class ChatMessageClassName(StrEnum):
     IMAGE = 'mmui::ChatBubbleItemView'
     VOICE = 'mmui::ChatVoiceItemView'
     SYSTEM = 'mmui::ChatItemView'
+    CARD = 'mmui::ChatPersonalCardItemView'
 
 
 class MessageType(StrEnum):

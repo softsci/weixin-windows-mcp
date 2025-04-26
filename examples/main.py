@@ -24,7 +24,7 @@ weixin = WeixinFactory.create_weixin()
 
 
 def main():
-    articles = weixin.search_chat_history('MCP交流共创', 'idoubi')
+    articles = weixin.search_chat_history('1')
     print(articles)
 
 

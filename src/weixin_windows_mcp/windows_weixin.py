@@ -1,7 +1,6 @@
 import random
 import time
 from typing import Callable, Any, Self
-from urllib.parse import quote
 
 import uiautomation as auto
 import win32clipboard
@@ -10,7 +9,7 @@ import win32gui
 from uiautomation import Control, WindowControl
 
 from weixin_windows_mcp import utils
-from weixin_windows_mcp.weixin import Weixin, TabBarItemType, SearchType, ContactsMasterSubTypeCellViewType, \
+from weixin_windows_mcp.weixin import Weixin, TabBarItemType, ContactsMasterSubTypeCellViewType, \
     MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat, ChatToolBarButtonType, \
     ChatLogMessage
 
@@ -62,7 +61,6 @@ class WindowsChat(Chat):
     @classmethod
     def from_control(cls, chat_message_page_control: Control, weixin_window: WindowControl) -> Self:
         chat_info_view = chat_message_page_control.GroupControl(ClassName='mmui::ChatInfoView')
-        utils.print_control_tree(chat_message_page_control)
         chat_name_control = chat_info_view.TextControl(
             AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label')
         chat_name = chat_name_control.Name
@@ -87,6 +85,12 @@ class WindowsWeixin(Weixin):
 
     ARTICLE_TITLE_TEXT_WIDTH = 266
     ARTICLE_TITLE_TEXT_HEIGHT = 21
+
+    AVATAR_IMAGE_WIDTH = 40
+    AVATAR_IMAGE_HEIGHT = 40
+
+    AVATAR_X_OFFSET = 28
+    AVATAR_Y_OFFSET = 15
 
     def __init__(self):
         print('init windows weixin')
@@ -114,13 +118,41 @@ class WindowsWeixin(Weixin):
         ChatLogMessage]:
         search_msg_unique_chat_window = auto.WindowControl(ClassName='mmui::SearchMsgUniqueChatWindow',
                                                            Depth=1)
-        utils.print_control_tree(search_msg_unique_chat_window)
         if query:
             search_msg_unique_chat_window.EditControl(ClassName='mmui::XLineEdit', Depth=5).SendKeys(query)
             auto.SendKeys('{ENTER}')
         chat_log_message_list = search_msg_unique_chat_window.ListControl(
             AutomationId='chat_log_message_list', Depth=4)
-        chat_log_messages = [ChatLogMessage(message=child.Name) for child in chat_log_message_list.GetChildren()]
+        chat_log_messages = []
+        child = chat_log_message_list.GetLastChildControl()
+        if not child:
+            return chat_log_messages
+        # 添加最大循环次数限制
+        max_iterations = 10  # 设置最大循环次数
+        iteration_count = 0
+        while child and child.Exists() and iteration_count < max_iterations:
+            # 确保当前消息可见
+            utils.ensure_visible(child)
+            child.Refind()
+            # 计算头像中心点击位置
+            avatar_center_x = self.AVATAR_X_OFFSET + (self.AVATAR_IMAGE_WIDTH / 2)
+            avatar_center_y = self.AVATAR_Y_OFFSET + (self.AVATAR_IMAGE_HEIGHT / 2)
+
+            # 点击头像获取昵称
+            child.Click(x=int(avatar_center_x), y=int(avatar_center_y), simulateMove=True)
+            nickname = self.parse_nickname()
+
+            # 添加消息到列表
+            chat_log_messages.append(ChatLogMessage(nickname=nickname, message=child.Name))
+
+            # 获取上一条消息
+            prev_child = child.GetPreviousSiblingControl()
+            if not prev_child or prev_child == child:
+                print(12312)
+                break
+
+            child = prev_child
+            iteration_count += 1
         return chat_log_messages
 
     def _open_moment(self):
@@ -199,36 +231,34 @@ class WindowsWeixin(Weixin):
 
     def _navigate_to_chat(self, to: str, exact_match=False) -> Chat:
         chat_message_page = None
-        if auto.WindowControl(ClassName='mmui::FramelessMainWindow', Depth=1).GroupControl(
-                AutomationId='chat_message_page').Exists(maxSearchSeconds=0.5,
-                                                         printIfNotExist=True):
-            chat_message_page = auto.WindowControl(ClassName='mmui::FramelessMainWindow', Depth=1).GroupControl(
-                AutomationId='chat_message_page')
-            print(1)
-        elif self.weixin_window.GroupControl(AutomationId='chat_message_page').Exists(maxSearchSeconds=0.5,
-                                                                                      printIfNotExist=True):
-            chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
-        if chat_message_page and chat_message_page.GroupControl(ClassName='mmui::ChatInfoView').TextControl(
-                AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label').Name == to:
+        frameless_window = auto.WindowControl(Name=to, ClassName='mmui::FramelessMainWindow', Depth=1)
+        print(1)
+        if frameless_window.Exists(maxSearchSeconds=0.5, printIfNotExist=True):
+            chat_message_page_control = frameless_window.GroupControl(AutomationId='chat_message_page', Depth=3)
+            if chat_message_page_control.Exists(maxSearchSeconds=0.1, printIfNotExist=True):
+                chat_message_page = chat_message_page_control
+        elif self.weixin_window.Exists(maxSearchSeconds=0.5, printIfNotExist=True) and self.weixin_window.GroupControl(
+                AutomationId='chat_message_page',
+                Depth=7).Exists(maxSearchSeconds=0.5, printIfNotExist=True):
             print(2)
+            chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
+        print(3)
+        if chat_message_page and chat_message_page.GroupControl(ClassName='mmui::ChatInfoView', Depth=1).TextControl(
+                AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label',
+                Depth=5).Name == to:
+            chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
         else:
             self.search_contact(to)
             chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
-            print(3)
         return WindowsChat.from_control(chat_message_page, self.weixin_window)
 
     def search_contact(self, name):
         if self.search_bar.Exists(1):
             self.search_bar.SetFocus()
-            # 有时候会触发一个奇怪的弹窗，强制关闭他
-            # blank_window = auto.WindowControl(Name='微信', ClassName='mmui::FramelessMainWindow', Depth=1)
-            # if blank_window.Exists():
-            #     utils.print_control_tree(blank_window)
-            # time.sleep(2)
             self.search_bar.SendKeys(name, interval=0.5)
             is_contact = False
             for child in self.weixin_window.ListControl(AutomationId='search_list', Depth=3).GetChildren():
-                if child.ClassName == 'mmui::XTableCell' and child.Name == '联系人':
+                if child.ClassName == 'mmui::XTableCell' and child.Name in ('联系人', '群聊'):
                     is_contact = True
                 if is_contact:
                     if child.ClassName == 'mmui::SearchContentCellView' and child.Name == name:
@@ -422,6 +452,10 @@ class WindowsWeixin(Weixin):
         self.weixin_window.DocumentControl(Name='搜一搜')
         self.weixin_window.EditControl().SendKeys('')
 
-    @staticmethod
-    def get_search_url(query: str, lang: str = 'zh_CN', search_type: SearchType = SearchType.ALL):
-        return f'weixin://resourceid/Search/app.html?isHomePage=0&lang={lang}&scene=85&query={quote(query)}&type={search_type.value}'
+    def parse_nickname(self) -> str:
+        profile_unique_pop = auto.WindowControl(Name='Weixin', ClassName='mmui::ProfileUniquePop', Depth=1)
+        right_v_view = profile_unique_pop.GroupControl(AutomationId='right_v_view', Depth=5)
+        nickname = right_v_view.TextControl(AutomationId='right_v_view.nickname_button_view.display_name_text',
+                                            Depth=2).Name
+        auto.SendKeys('{Esc}')
+        return nickname
