@@ -1,4 +1,3 @@
-import uiautomation as auto
 from uiautomation import WindowControl, Control
 
 
@@ -8,32 +7,19 @@ def choose_file(control: WindowControl, image=None):
 
 
 def print_control_tree(control: Control, level=0):
+    """更详细地打印控件树，包括所有属性"""
     print('  ' * level + (
         f'Type: {control.ControlTypeName}, '
         f'Name: {control.Name}, '
         f'Class: {control.ClassName}, '
         f'AutomationId: {control.AutomationId}, '
-        f'Rect: {control.BoundingRectangle}'
+        f'Rect: {control.BoundingRectangle}, '
+        f'IsOffscreen: {control.IsOffscreen}, '
+        f'ControlType: {control.ControlType}'
     ))
     # 获取所有子控件，包括深层嵌套的
     for child in control.GetChildren():
         print_control_tree(child, level + 1)
-
-
-def print_control_tree_deep(control: Control, level=0, max_retries=3):
-    # 打印当前控件信息
-    print('  ' * level + (
-        f'Type: {control.ControlTypeName}, '
-        f'Name: {control.Name}, '
-        f'Class: {control.ClassName}, '
-        f'AutomationId: {control.AutomationId}, '
-        f'Rect: {control.BoundingRectangle}'
-    ))
-
-    selection_pattern = control.GetPattern(auto.PatternId.SelectionPattern)
-    if selection_pattern:
-        for item in selection_pattern.GetSelection():
-            print_control_tree_deep(item, level + 1)
 
 
 def ensure_visible(element: Control, container=None):

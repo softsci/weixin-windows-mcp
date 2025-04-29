@@ -123,17 +123,31 @@ class WindowsWeixin(Weixin):
             auto.SendKeys('{ENTER}')
         chat_log_message_list = search_msg_unique_chat_window.ListControl(
             AutomationId='chat_log_message_list', Depth=4)
+        print("聊天记录列表控件信息:")
+        utils.print_control_tree(chat_log_message_list)
+
+        chat_log_message_list.GetLastChildControl()
+        # 直接获取所有子控件
+        all_messages = chat_log_message_list.GetChildren()
+        print(f"找到 {len(all_messages)} 条消息")
+
+        # TODO
+        # 1. 找到chat_log_message_list.GetLastChildControl()
+        # 2. 解析
+        # 3. 滚动到这个lastChild不可见，继续找
+        # 4. 循环以上步骤，直到无法滚动或者消息条数大于指定条数为止
+        children = chat_log_message_list.GetChildren()
+        # 根据屏幕Y坐标（从上到下）排序
+        sorted_children = sorted(children, key=lambda ele: ele.BoundingRectangle.top)
+
         chat_log_messages = []
-        child = chat_log_message_list.GetLastChildControl()
-        if not child:
-            return chat_log_messages
-        # 添加最大循环次数限制
-        max_iterations = 10  # 设置最大循环次数
-        iteration_count = 0
-        while child and child.Exists() and iteration_count < max_iterations:
+        max_message_count = 10
+        try_count = 0
+        max_try_count = 20
+        while child and child.Exists() and len(chat_log_messages) <= max_message_count and try_count < max_try_count:
             # 确保当前消息可见
             utils.ensure_visible(child)
-            child.Refind()
+
             # 计算头像中心点击位置
             avatar_center_x = self.AVATAR_X_OFFSET + (self.AVATAR_IMAGE_WIDTH / 2)
             avatar_center_y = self.AVATAR_Y_OFFSET + (self.AVATAR_IMAGE_HEIGHT / 2)
@@ -142,17 +156,21 @@ class WindowsWeixin(Weixin):
             child.Click(x=int(avatar_center_x), y=int(avatar_center_y), simulateMove=True)
             nickname = self.parse_nickname()
 
+            clm = ChatLogMessage(nickname=nickname, message=child.Name)
+            print(f"获取到的消息: {clm}")
+
             # 添加消息到列表
-            chat_log_messages.append(ChatLogMessage(nickname=nickname, message=child.Name))
+            chat_log_messages.append(clm)
 
-            # 获取上一条消息
-            prev_child = child.GetPreviousSiblingControl()
-            if not prev_child or prev_child == child:
-                print(12312)
-                break
+            # TODO 往上滚动到child不可见为止
+            chat_log_message_list.WheelUp(waitTime=0.1)
+            chat_log_message_list.WheelUp(waitTime=0.1)
+            chat_log_message_list.WheelUp(waitTime=0.1)
 
-            child = prev_child
-            iteration_count += 1
+            chat_log_message_list.Refind()
+            child = chat_log_message_list.GetLastChildControl()
+            try_count += 1
+
         return chat_log_messages
 
     def _open_moment(self):
