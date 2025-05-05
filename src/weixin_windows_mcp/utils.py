@@ -22,6 +22,14 @@ def print_control_tree(control: Control, level=0):
         print_control_tree(child, level + 1)
 
 
+def is_visible(element: Control, container=None):
+    container = container or element.GetParentControl()
+    if not container:
+        return True
+    return (element.BoundingRectangle.top >= container.BoundingRectangle.top and
+            element.BoundingRectangle.bottom <= container.BoundingRectangle.bottom)
+
+
 def ensure_visible(element: Control, container=None):
     """确保元素在容器的可见区域内
 

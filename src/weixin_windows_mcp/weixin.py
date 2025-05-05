@@ -1,4 +1,5 @@
 import inspect
+import re
 import threading
 from abc import abstractmethod, ABC
 from enum import IntEnum, StrEnum
@@ -6,11 +7,6 @@ from urllib.parse import quote
 
 import arrow
 from pydantic import BaseModel
-
-
-class ChatLogMessage(BaseModel):
-    nickname: str
-    message: str
 
 
 class TabBarItemType(StrEnum):
@@ -86,6 +82,13 @@ class ContactsMasterSubTypeCellViewType(StrEnum):
     CONTACT = '联系人'
 
 
+class ChatLogMessage(BaseModel):
+    nickname: str | None = None
+    msg_time: str | None = None
+    msg: str
+    msg_type: ChatMessageClassName
+
+
 class Chat(ABC):
 
     def __init__(self):
@@ -118,6 +121,7 @@ class Chat(ABC):
 
 
 class Weixin(ABC):
+    TIME_REGEX = r'^(.*?\s\d{2}:\d{2})\s(.*)$'
 
     def __init__(self):
         # 添加一个线程锁，用于确保同一时间只有一个自动化任务在执行
@@ -151,7 +155,7 @@ class Weixin(ABC):
         self._show()
         self._navigate_to_chat(to)
         self._click_chat_tool_bar(ChatToolBarButtonType.CHAT_HISTORY)
-        self._search_chat_history(query, from_date, to_date)
+        return self._search_chat_history(query, from_date, to_date)
 
     def publish_moment(self, msg: str, images=None):
         if images and len(images) > 9:
@@ -234,7 +238,16 @@ class Weixin(ABC):
         return self._current_task
 
     @staticmethod
-    def parse_chat_time(time_str):
+    def parse_message(message: str) -> (str | None, str):
+        result = re.match(Weixin.TIME_REGEX, message)
+        if not result:
+            return None, message
+        time_part = result.group(1)
+        content_part = result.group(2)
+        return Weixin.parse_chat_time(time_part), content_part
+
+    @staticmethod
+    def parse_chat_time(time_str) -> str | None:
         patterns = [
             "HH:mm"  # 没有前缀
             "星期一 HH:mm",  # 星期几
@@ -244,7 +257,7 @@ class Weixin(ABC):
         ]
         for pattern in patterns:
             try:
-                return arrow.get(time_str, pattern)
+                return arrow.get(time_str, pattern).format('YYYY-MM-DD HH:mm:ss')
             except arrow.parser.ParserError:
                 continue
         return None

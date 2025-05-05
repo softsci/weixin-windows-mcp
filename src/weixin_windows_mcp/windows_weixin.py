@@ -13,7 +13,8 @@ from weixin_windows_mcp.weixin import Weixin, TabBarItemType, ContactsMasterSubT
     MessageType, ChatMessageClassName, SNSWindowToolBarItemType, ChatMessagePageType, Chat, ChatToolBarButtonType, \
     ChatLogMessage
 
-auto.uiautomation.DEBUG_SEARCH_TIME = True
+
+# auto.uiautomation.DEBUG_SEARCH_TIME = True
 
 
 class WindowsChat(Chat):
@@ -123,55 +124,90 @@ class WindowsWeixin(Weixin):
             auto.SendKeys('{ENTER}')
         chat_log_message_list = search_msg_unique_chat_window.ListControl(
             AutomationId='chat_log_message_list', Depth=4)
+        chat_log_message_list.WheelUp(1)
+        time.sleep(0.5)
+        self.wait_for_content_load(chat_log_message_list)
+        chat_log_message_list.WheelDown(1)
+        time.sleep(0.5)
         print("聊天记录列表控件信息:")
-        utils.print_control_tree(chat_log_message_list)
-
-        chat_log_message_list.GetLastChildControl()
+        max_try_count = 10
         # 直接获取所有子控件
-        all_messages = chat_log_message_list.GetChildren()
-        print(f"找到 {len(all_messages)} 条消息")
-
-        # TODO
-        # 1. 找到chat_log_message_list.GetLastChildControl()
-        # 2. 解析
-        # 3. 滚动到这个lastChild不可见，继续找
-        # 4. 循环以上步骤，直到无法滚动或者消息条数大于指定条数为止
-        children = chat_log_message_list.GetChildren()
-        # 根据屏幕Y坐标（从上到下）排序
-        sorted_children = sorted(children, key=lambda ele: ele.BoundingRectangle.top)
-
         chat_log_messages = []
-        max_message_count = 10
         try_count = 0
-        max_try_count = 20
-        while child and child.Exists() and len(chat_log_messages) <= max_message_count and try_count < max_try_count:
-            # 确保当前消息可见
-            utils.ensure_visible(child)
-
-            # 计算头像中心点击位置
-            avatar_center_x = self.AVATAR_X_OFFSET + (self.AVATAR_IMAGE_WIDTH / 2)
-            avatar_center_y = self.AVATAR_Y_OFFSET + (self.AVATAR_IMAGE_HEIGHT / 2)
-
-            # 点击头像获取昵称
-            child.Click(x=int(avatar_center_x), y=int(avatar_center_y), simulateMove=True)
-            nickname = self.parse_nickname()
-
-            clm = ChatLogMessage(nickname=nickname, message=child.Name)
-            print(f"获取到的消息: {clm}")
-
-            # 添加消息到列表
-            chat_log_messages.append(clm)
-
-            # TODO 往上滚动到child不可见为止
-            chat_log_message_list.WheelUp(waitTime=0.1)
-            chat_log_message_list.WheelUp(waitTime=0.1)
-            chat_log_message_list.WheelUp(waitTime=0.1)
-
+        # 根据屏幕Y坐标（从上到下）排序
+        msg_id_set = set()
+        while try_count <= max_try_count:
             chat_log_message_list.Refind()
-            child = chat_log_message_list.GetLastChildControl()
+            children = chat_log_message_list.GetChildren()
+            for child in children:
+                runtime_id = child.GetRuntimeId()
+                if runtime_id in msg_id_set:
+                    continue
+                if utils.is_visible(child):
+                    nickname = None
+                    msg_type = ChatMessageClassName(child.ClassName)
+                    if msg_type != ChatMessageClassName.SYSTEM:
+                        # 计算头像中心点击位置
+                        avatar_center_x = self.AVATAR_X_OFFSET + (self.AVATAR_IMAGE_WIDTH / 2)
+                        avatar_center_y = self.AVATAR_Y_OFFSET + (self.AVATAR_IMAGE_HEIGHT / 2)
+
+                        # 点击头像获取昵称
+                        child.Click(x=int(avatar_center_x), y=int(avatar_center_y), simulateMove=True)
+                        nickname = self.parse_nickname()
+                    msg_time, msg = self.parse_message(child.Name)
+                    clm = ChatLogMessage(nickname=nickname, msg_time=msg_time, msg=msg,
+                                         msg_type=ChatMessageClassName(child.ClassName))
+                    print(f"获取到的消息: {clm}")
+
+                    # 添加消息到列表
+                    chat_log_messages.append(clm)
+
+                    msg_id_set.add(runtime_id)
+                else:
+                    print(child.Name)
+
+            chat_log_message_list.WheelUp(waitTime=0.1)
+            self.wait_for_content_load(chat_log_message_list)
             try_count += 1
 
         return chat_log_messages
+
+    @staticmethod
+    def is_avatar_visible(child, container):
+        """判断头像区域是否在可见范围内"""
+        # 获取头像区域的矩形
+        avatar_rect = child.BoundingRectangle
+        avatar_rect.left += WindowsWeixin.AVATAR_X_OFFSET
+        avatar_rect.top += WindowsWeixin.AVATAR_Y_OFFSET
+        avatar_rect.right = avatar_rect.left + WindowsWeixin.AVATAR_IMAGE_WIDTH
+        avatar_rect.bottom = avatar_rect.top + WindowsWeixin.AVATAR_IMAGE_HEIGHT
+
+        # 获取容器的可见区域
+        container_rect = container.BoundingRectangle
+
+        # 判断头像是否完全在可见区域内
+        return (avatar_rect.top >= container_rect.top and
+                avatar_rect.bottom <= container_rect.bottom and
+                avatar_rect.left >= container_rect.left and
+                avatar_rect.right <= container_rect.right)
+
+    @staticmethod
+    def wait_for_content_load(control, timeout=2.0, check_interval=0.1):
+        """等待内容加载完成"""
+        start_time = time.time()
+        previous_items = set()
+
+        while time.time() - start_time < timeout:
+            current_items = set(item.Name for item in control.GetChildren())
+
+            if current_items and current_items == previous_items:
+                # 如果连续两次获取的内容相同，说明加载完成
+                return True
+
+            previous_items = current_items
+            time.sleep(check_interval)
+
+        return False
 
     def _open_moment(self):
         self.tab_bar_items[TabBarItemType.MOMENTS].Click(simulateMove=False)
@@ -250,7 +286,6 @@ class WindowsWeixin(Weixin):
     def _navigate_to_chat(self, to: str, exact_match=False) -> Chat:
         chat_message_page = None
         frameless_window = auto.WindowControl(Name=to, ClassName='mmui::FramelessMainWindow', Depth=1)
-        print(1)
         if frameless_window.Exists(maxSearchSeconds=0.5, printIfNotExist=True):
             chat_message_page_control = frameless_window.GroupControl(AutomationId='chat_message_page', Depth=3)
             if chat_message_page_control.Exists(maxSearchSeconds=0.1, printIfNotExist=True):
@@ -258,9 +293,7 @@ class WindowsWeixin(Weixin):
         elif self.weixin_window.Exists(maxSearchSeconds=0.5, printIfNotExist=True) and self.weixin_window.GroupControl(
                 AutomationId='chat_message_page',
                 Depth=7).Exists(maxSearchSeconds=0.5, printIfNotExist=True):
-            print(2)
             chat_message_page = self.weixin_window.GroupControl(AutomationId='chat_message_page', Depth=7)
-        print(3)
         if chat_message_page and chat_message_page.GroupControl(ClassName='mmui::ChatInfoView', Depth=1).TextControl(
                 AutomationId='top_content_h_view.top_spacing_v_view.top_left_info_v_view.big_title_line_h_view.current_chat_name_label',
                 Depth=5).Name == to:
