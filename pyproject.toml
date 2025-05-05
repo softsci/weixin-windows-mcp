@@ -9,7 +9,6 @@ dependencies = [
     "pywin32>=310; platform_system == 'Windows'",
     "pyobjc; platform_system == 'Darwin'",
     "fastmcp>=2.2.0",
-    "uiautomation>=2.0.25",
     "arrow>=1.3.0",
 ]
 
