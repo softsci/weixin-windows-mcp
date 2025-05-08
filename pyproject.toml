@@ -5,11 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "uiautomation>=2.0.25; platform_system == 'Windows'",
-    "pywin32>=310; platform_system == 'Windows'",
-    "pyobjc; platform_system == 'Darwin'",
-    "fastmcp>=2.2.0",
     "arrow>=1.3.0",
+    "fastmcp>=2.2.10",
+    "pyobjc>=11.0 ; sys_platform == 'Darwin'",
+    "pywin32>=310 ; sys_platform == 'Windows'",
+    "uiautomation>=2.0.27 ; sys_platform == 'Windows'",
 ]
 
 [project.scripts]

@@ -14,7 +14,7 @@ from weixin_windows_mcp.weixin import Weixin, TabBarItemType, ContactsMasterSubT
     ChatLogMessage
 
 
-# auto.uiautomation.DEBUG_SEARCH_TIME = True
+auto.uiautomation.DEBUG_SEARCH_TIME = True
 
 
 class WindowsChat(Chat):
